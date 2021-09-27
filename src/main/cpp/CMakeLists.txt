@@ -4,7 +4,8 @@
 # Sets the minimum version of CMake required to build the native library.
 
 cmake_minimum_required(VERSION 3.4.1)
-set(libs "${CMAKE_SOURCE_DIR}/../jniLibs")
+set(libs "${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}")
+include_directories(${libs}/include)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR})
 # Creates and names a library, sets it as either STATIC
@@ -41,7 +42,7 @@ find_library( # Sets the name of the path variable.
 
 add_library(imported-lib SHARED IMPORTED )
 set_target_properties(imported-lib PROPERTIES
-        IMPORTED_LOCATION "${libs}/${ANDROID_ABI}/libzmq.so")
+        IMPORTED_LOCATION "${libs}/lib/libzmq.so")
 
 
 # Specifies libraries CMake should link to your target library. You

@@ -32,6 +32,8 @@
 #endif
 #endif
 
+#define ZMQ_BUILD_DRAFT_API
+
 // included here for _HAS_CXX* macros
 #include "zmq.h"
 

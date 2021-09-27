@@ -27,7 +27,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/*  This file is deprecated, and all its functionality provided by weismarts.zmq.h     */
+/*  This file is deprecated, and all its functionality provided by zmq.h     */
 /*  Note that -Wpedantic compilation requires GCC to avoid using its custom
     extensions such as #warning, hence the trick below. Also, pragmas for
     warnings or other messages are not standard, not portable, and not all
@@ -43,7 +43,7 @@
 #pragma GCC diagnostic ignored "-Wall"
 #endif
 #pragma message(                                                               \
-  "Warning: zmq_utils.h is deprecated. All its functionality is provided by weismarts.zmq.h.")
+  "Warning: zmq_utils.h is deprecated. All its functionality is provided by zmq.h.")
 #if defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic pop
 #endif
