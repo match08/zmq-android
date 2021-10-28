@@ -1,13 +1,14 @@
 package com.weismarts.librarys;
 
 import java.nio.charset.Charset;
-import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Iterator;
 
 public class ZMsg {
-    private ArrayList<ZFrame> _msgs;
+    private ArrayDeque<ZFrame> _msgs;
     public ZMsg()
     {
-        _msgs = new ArrayList<ZFrame>();
+        _msgs = new ArrayDeque<ZFrame>();
     }
 
     public void add(String msg)
@@ -24,15 +25,35 @@ public class ZMsg {
     {
         _msgs.clear();
     }
-
-    public void send(ZMQSocket socket)
+    public boolean send(ZMQSocket socket)
     {
-        send(socket.getID(), _msgs);
+        return  send(socket, true);
+    }
+    public boolean send(ZMQSocket socket, boolean destroy)
+    {
+        if (_msgs.size() == 0) {
+            return true;
+        }
+
+        boolean ret = true;
+        Iterator<ZFrame> i = _msgs.iterator();
+        while (i.hasNext()) {
+            ZFrame f = i.next();
+            send(socket.getID(), f.getData(), f.size(),(i.hasNext()) ? 2 : 0);
+            if (!ret) {
+                break;
+            }
+        }
+        if (destroy) {
+            destroy();
+        }
+        return ret;
+//
     }
 
     public ZFrame getLast()
     {
-        return _msgs.get(_msgs.size()-1);
+        return _msgs.peekLast();
     }
 
 
@@ -41,7 +62,7 @@ public class ZMsg {
         return recvMsg(socket.getID());
     }
 
-    private native void send(int socketID, ArrayList<ZFrame> msgs);
+    private native boolean send(int socketID, byte[] msg, int len, int flags);//1 or 2 (1-none,2-more)
     static public native ZMsg recvMsg(int socketID);
 
 
@@ -69,6 +90,16 @@ public class ZMsg {
         public byte[] getData()
         {
             return _data;
+        }
+
+        public int size()
+        {
+            if (_data!=null) {
+                return _data.length;
+            }
+            else {
+                return 0;
+            }
         }
     }
 

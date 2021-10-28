@@ -14,6 +14,11 @@ void ZMsg::Add(char* msg)
     _multipart.addstr(std::string(msg));
 }
 
+void ZMsg::Add(void* msg, size_t len)
+{
+    _multipart.addmem(msg, len);
+}
+
 void ZMsg::Add(std::string msg)
 {
     _multipart.addstr(msg);
@@ -30,26 +35,26 @@ void ZMsg::AddAll(std::vector<std::string> msgs)
     }
 }
 
-ZMsg ZMsg::RecvMsg(ZMQSocket *socket)
+ZMsg ZMsg::RecvMsg(ZMQSocket *socket, bool wait)
 {
     ZMsg zMsg;
     std::vector<zmq::message_t> recv_msgs;
     const auto ret = zmq::recv_multipart(
-            *socket->getPtr(), std::back_inserter(recv_msgs));
+            *socket->getPtr(), std::back_inserter(recv_msgs), wait?  zmq::recv_flags::none : zmq::recv_flags::dontwait);
 
-    std::string msgStr ="";
+    if(!ret) return zMsg;
+
     const size_t len =  recv_msgs.size();
     for (int i = 0; i < len; ++i) {
-        msgStr += std::string((char*)recv_msgs[i].data(), recv_msgs[i].size());
-
+        zMsg.Add(recv_msgs[i].data(), recv_msgs[i].size());
     }
-    zMsg.Add(msgStr);
-    return  zMsg;
+
+    return zMsg;
 }
 
-void ZMsg::Send(ZMQSocket *socket)
+void ZMsg::Send(ZMQSocket *socket, int flags)
 {
-    _multipart.send(*socket->getPtr());
+    _multipart.send(*socket->getPtr(), flags);
 }
 size_t ZMsg::Size()
 {
@@ -58,6 +63,15 @@ size_t ZMsg::Size()
 std::string ZMsg::Peekstr(size_t index)
 {
     return _multipart.peekstr(index);
+}
+
+std::string ZMsg::Str()
+{
+    return _multipart.str();
+}
+
+void *ZMsg::AtData(size_t n) {
+    return _multipart.at(n).data();
 }
 
 void ZMsg::Destroy()

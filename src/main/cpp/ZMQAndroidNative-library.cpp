@@ -8,6 +8,7 @@
 #include <weismarts/zmq/ZMQPoller.h>
 #include <weismarts/zmq/ZMsg.h>
 
+
 std::vector<ZMQSocket*> sockets;
 std::vector<ZMQPoller*> pollers;
 std::unordered_map<ZMQSocket*, jobject> jobjectLists;
@@ -90,8 +91,16 @@ jstring charToJString(JNIEnv *env, char *pat) {
     return (jstring) env->NewObject(strClass, ctorID, bytes, encoding);
 }
 
-jbyteArray charToJByteArray(JNIEnv *env, unsigned char *buf, int len) {
-//    size_t len = strlen(reinterpret_cast<const char *>(buf));
+jstring charToJStringN(JNIEnv *env, char *pat, size_t len) {
+    jclass strClass = env->FindClass("java/lang/String");
+    jmethodID ctorID = env->GetMethodID(strClass, "<init>", "([BLjava/lang/String;)V");
+    jbyteArray bytes = env->NewByteArray(len);
+    env->SetByteArrayRegion(bytes, 0, len,(jbyte*)pat);
+    jstring encoding = env->NewStringUTF("utf-8");
+    return (jstring) env->NewObject(strClass, ctorID, bytes, encoding);
+}
+
+jbyteArray charToJByteArray(JNIEnv *env, char *buf, size_t len) {
     jbyteArray array = env->NewByteArray(len);
     env->SetByteArrayRegion(array, 0, len, reinterpret_cast<jbyte *>(buf));
     return array;
@@ -102,6 +111,18 @@ char *jByteArrayToChar(JNIEnv *env, jbyteArray buf) {
     jbyte *bytes;
     bytes = env->GetByteArrayElements(buf, 0);
     int chars_len = env->GetArrayLength(buf);
+    chars = new char[chars_len + 1];
+    memset(chars, 0, chars_len + 1);
+    memcpy(chars, bytes, chars_len);
+    chars[chars_len] = 0;
+    env->ReleaseByteArrayElements(buf, bytes, 0);
+    return chars;
+}
+char *jByteArrayToCharN(JNIEnv *env, jbyteArray buf, int len) {
+    char *chars = NULL;
+    jbyte *bytes;
+    bytes = env->GetByteArrayElements(buf, 0);
+    int chars_len = len;
     chars = new char[chars_len + 1];
     memset(chars, 0, chars_len + 1);
     memcpy(chars, bytes, chars_len);
@@ -359,19 +380,15 @@ Java_com_weismarts_librarys_ZMQPoller_remove(
 // ZMsg
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" JNIEXPORT void JNICALL
+extern "C" JNIEXPORT jboolean JNICALL
 Java_com_weismarts_librarys_ZMsg_send(
         JNIEnv* env,
         jobject obj,
         jint socketID,
-        jobject multMsgs) {
+        jbyteArray msg, jint len, jint flags) {
+      const char* c_msg = jByteArrayToCharN(env, msg, len);
+      return sockets[socketID]->getPtr()->send(zmq::const_buffer(c_msg, strlen(c_msg)), flags==0? zmq::send_flags::none : zmq::send_flags::sndmore).value();
 
-     std::vector<std::string> msgs = jZMsgs2Buffers(env, multMsgs);
-    ZMsg *zMsg  = new ZMsg();
-    zMsg->AddAll(msgs);
-    zMsg->Send(sockets[socketID]);
-    zMsg->Destroy();
-    zMsg = NULL;
 }
 
 extern "C" JNIEXPORT jobject JNICALL
@@ -383,14 +400,21 @@ Java_com_weismarts_librarys_ZMsg_recvMsg(
     ZMsg zMsg =  ZMsg::RecvMsg(sockets[socketID]);
 
     jobject newMsg = env->NewObject(obj, env->GetMethodID(obj, "<init>", "()V"));
-    jmethodID addMethodID = env->GetMethodID(obj, "add", "(Ljava/lang/String;)V");
-
-
+//    jmethodID addMethodID = env->GetMethodID(obj, "add", "(Ljava/lang/String;)V");
+    jmethodID addMethodID = env->GetMethodID(obj, "add", "([B)V");
     //    ZFrame
-    for (int i = 0; i < zMsg.Size(); ++i) {
-        const char* str = zMsg.Peekstr(0).c_str();
-        jstring jtstr = charToJString(env, (char*)str);
-        env->CallVoidMethod(newMsg, addMethodID, jtstr);
+    size_t len = zMsg.Size();
+    for (size_t i = 0; i < len; ++i) {
+        std::string str =  zMsg.Peekstr(i);
+        const size_t len = str.length();
+        const size_t TOTAL_SIZE  = len+1;
+        char cstr[TOTAL_SIZE];
+        for (int i = 0; i < len; ++i) {
+            char c_str = str[i];
+            cstr[i] = c_str;
+        }
+        cstr[len] = 0;
+        env->CallVoidMethod(newMsg, addMethodID, charToJByteArray(env, cstr, len));
 //        env->ReleaseStringUTFChars(jtstr, str);
     }
     return newMsg;

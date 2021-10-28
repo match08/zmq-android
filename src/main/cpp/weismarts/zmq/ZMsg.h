@@ -16,19 +16,24 @@ public:
     ZMsg();
 
     void Add(char* msg);
+    void Add(void* msg, size_t len);
     void Add(zmq::message_t &msg);
     void Add(std::string msg);
     void AddAll(std::vector<std::string> msgs);
     void Destroy();
-    void Send(ZMQSocket *socket);
+    void Send(ZMQSocket *socket, int flags=0);
 
     size_t Size();
     std::string Peekstr(size_t index);
+    std::string Str();
 
-    static ZMsg RecvMsg(ZMQSocket *socket);
+    void *AtData(size_t n);
+
+    static ZMsg RecvMsg(ZMQSocket *socket, bool wait= false);
 
 private:
     zmq::multipart_t _multipart;
+    size_t _size;
 
 
 
