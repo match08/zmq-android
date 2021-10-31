@@ -21,7 +21,7 @@ public:
     void Add(std::string msg);
     void AddAll(std::vector<std::string> msgs);
     void Destroy();
-    void Send(ZMQSocket *socket, int flags=0);
+    bool Send(ZMQSocket *socket, int flags=0);
 
     size_t Size();
     std::string Peekstr(size_t index);

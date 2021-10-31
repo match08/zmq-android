@@ -2,6 +2,7 @@ package com.weismarts.librarys;
 
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Iterator;
 
 public class ZMsg {
@@ -27,7 +28,7 @@ public class ZMsg {
     }
     public boolean send(ZMQSocket socket)
     {
-        return  send(socket, true);
+        return send(socket, true);
     }
     public boolean send(ZMQSocket socket, boolean destroy)
     {
@@ -39,7 +40,7 @@ public class ZMsg {
         Iterator<ZFrame> i = _msgs.iterator();
         while (i.hasNext()) {
             ZFrame f = i.next();
-            send(socket.getID(), f.getData(), f.size(),(i.hasNext()) ? 2 : 0);
+            send(socket.getID(), f ,(i.hasNext()) ? 2 : 0);
             if (!ret) {
                 break;
             }
@@ -48,7 +49,17 @@ public class ZMsg {
             destroy();
         }
         return ret;
-//
+    }
+    //1 or 2 (1-none,2-more)
+    public boolean sendMultipart(ZMQSocket socket)
+    {
+        Iterator<ZFrame> i = _msgs.iterator();
+        ArrayList<ZFrame> msgs = new ArrayList<>();
+        while (i.hasNext()) {
+            ZFrame f = i.next();
+            msgs.add(f);
+        }
+        return sendMultipart(socket.getID(),msgs, 2);
     }
 
     public ZFrame getLast()
@@ -62,7 +73,9 @@ public class ZMsg {
         return recvMsg(socket.getID());
     }
 
-    private native boolean send(int socketID, byte[] msg, int len, int flags);//1 or 2 (1-none,2-more)
+    private native boolean send(int socketID, ZFrame msg, int flags);//1 or 2 (1-none,2-more)
+
+    private native boolean sendMultipart(int socketID, ArrayList<ZFrame> msgs, int flags);//1 or 2 (1-none,2-more)
     static public native ZMsg recvMsg(int socketID);
 
 
@@ -100,6 +113,11 @@ public class ZMsg {
             else {
                 return 0;
             }
+        }
+
+        public String toString()
+        {
+            return new String(_data, Charset.forName("UTF-8"));
         }
     }
 

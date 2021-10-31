@@ -52,16 +52,11 @@ void jArrayList2Cpp(JNIEnv *env,  jmethodID &java_util_ArrayList_get, jmethodID 
 std::vector<std::string> jZMsgs2Buffers(JNIEnv *env, jobject arrayList) {
 
     jclass java_util_ArrayList;
-//    jmethodID java_util_ArrayList_;
     jmethodID java_util_ArrayList_size;
     jmethodID java_util_ArrayList_get;
-//    jmethodID java_util_ArrayList_add;
-
     java_util_ArrayList      = static_cast<jclass>(env->NewGlobalRef(env->FindClass("java/util/ArrayList")));
-//    java_util_ArrayList_     = env->GetMethodID(java_util_ArrayList, "<init>", "(I)V");
     java_util_ArrayList_size = env->GetMethodID (java_util_ArrayList, "size", "()I");
     java_util_ArrayList_get  = env->GetMethodID(java_util_ArrayList, "get", "(I)Ljava/lang/Object;");
-//    java_util_ArrayList_add  = env->GetMethodID(java_util_ArrayList, "add", "(Ljava/lang/Object;)Z");
 
     jint len = env->CallIntMethod(arrayList, java_util_ArrayList_size);
     std::vector<std::string> result;
@@ -82,6 +77,22 @@ std::vector<std::string> jZMsgs2Buffers(JNIEnv *env, jobject arrayList) {
     }
     return result;
 }
+std::string jZFrame2String(JNIEnv *env, jobject zFrame)
+{
+    jclass ZFrameClssz = env->GetObjectClass(zFrame);
+    //java ZFrame
+    jmethodID dataMethodID =  env->GetMethodID(ZFrameClssz, "getData", "()[B");
+    jbyteArray dataChrs = (jbyteArray)env->CallNonvirtualObjectMethod(zFrame, ZFrameClssz, dataMethodID);
+
+    jbyte * adrChars = env->GetByteArrayElements(dataChrs,JNI_FALSE);
+
+    std::string msgDataStr = std::string((char*)adrChars,env->GetArrayLength(dataChrs));
+
+    env->ReleaseByteArrayElements(dataChrs, adrChars, 0);
+    env->DeleteLocalRef(zFrame);
+    return msgDataStr;
+}
+
 jstring charToJString(JNIEnv *env, char *pat) {
     jclass strClass = env->FindClass("java/lang/String");
     jmethodID ctorID = env->GetMethodID(strClass, "<init>", "([BLjava/lang/String;)V");
@@ -118,15 +129,15 @@ char *jByteArrayToChar(JNIEnv *env, jbyteArray buf) {
     env->ReleaseByteArrayElements(buf, bytes, 0);
     return chars;
 }
-char *jByteArrayToCharN(JNIEnv *env, jbyteArray buf, int len) {
-    char *chars = NULL;
+char *jByteArrayToCharN(JNIEnv *env, jbyteArray buf, const size_t size) {
+    const size_t TOTAL_SIZE = size+1;
+    char chars[TOTAL_SIZE];
     jbyte *bytes;
     bytes = env->GetByteArrayElements(buf, 0);
-    int chars_len = len;
-    chars = new char[chars_len + 1];
-    memset(chars, 0, chars_len + 1);
-    memcpy(chars, bytes, chars_len);
-    chars[chars_len] = 0;
+    for (int i = 0; i < size; ++i) {
+        chars[i] = bytes[i];
+    }
+    chars[size] = 0;
     env->ReleaseByteArrayElements(buf, bytes, 0);
     return chars;
 }
@@ -232,20 +243,20 @@ Java_com_weismarts_librarys_ZMQSocket_close(
 }
 
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_weismarts_librarys_ZMQSocket_sendMultipart(
-        JNIEnv* env,
-        jobject obj, jobject multMsgs)
-{
-    jclass clazz =  env->GetObjectClass(obj);
-    jmethodID mid = env->GetMethodID(clazz,"getID", "()I");
-    jint id = env->CallIntMethod(obj, mid);
-
-    std::vector<std::string> sendMsgs = jZMsgs2Buffers(env, multMsgs);
-
-//    sockets[id]->SendMultipart(sendMsgs);
-
-}
+//extern "C" JNIEXPORT void JNICALL
+//Java_com_weismarts_librarys_ZMQSocket_sendMultipart(
+//        JNIEnv* env,
+//        jobject obj, jobject multMsgs)
+//{
+//    jclass clazz =  env->GetObjectClass(obj);
+//    jmethodID mid = env->GetMethodID(clazz,"getID", "()I");
+//    jint id = env->CallIntMethod(obj, mid);
+//
+//    std::vector<std::string> sendMsgs = jZMsgs2Buffers(env, multMsgs);
+//
+////    sockets[id]->SendMultipart(sendMsgs);
+//
+//}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // Poller
@@ -385,11 +396,29 @@ Java_com_weismarts_librarys_ZMsg_send(
         JNIEnv* env,
         jobject obj,
         jint socketID,
-        jbyteArray msg, jint len, jint flags) {
-      const char* c_msg = jByteArrayToCharN(env, msg, len);
-      return sockets[socketID]->getPtr()->send(zmq::const_buffer(c_msg, strlen(c_msg)), flags==0? zmq::send_flags::none : zmq::send_flags::sndmore).value();
+        jobject msg, jint flags) {
 
+      return !!sockets[socketID]->getPtr()->send(zmq::buffer(jZFrame2String(env, msg)), flags==0? zmq::send_flags::none : zmq::send_flags::sndmore);
 }
+
+
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_weismarts_librarys_ZMsg_sendMultipart(
+        JNIEnv* env,
+        jobject obj,
+        jint socketID,
+        jobject multMsgs, jint flags) {
+
+    std::vector<std::string> msgs = jZMsgs2Buffers(env, multMsgs);
+    ZMsg *zMsg  = new ZMsg();
+    zMsg->AddAll(msgs);
+    bool send = zMsg->Send(sockets[socketID], flags);
+    zMsg->Destroy();
+    zMsg = NULL;
+    return send;
+}
+
 
 extern "C" JNIEXPORT jobject JNICALL
 Java_com_weismarts_librarys_ZMsg_recvMsg(

@@ -45,6 +45,7 @@ void ZMQSocket::Close()
     sock->close();
     ctx.close();
 }
+
 void ZMQSocket::SendMultipart(std::vector<zmq::const_buffer> multMsgs)
 {
     zmq::send_multipart(*sock, multMsgs);

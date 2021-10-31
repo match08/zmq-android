@@ -52,9 +52,9 @@ ZMsg ZMsg::RecvMsg(ZMQSocket *socket, bool wait)
     return zMsg;
 }
 
-void ZMsg::Send(ZMQSocket *socket, int flags)
+bool ZMsg::Send(ZMQSocket *socket, int flags)
 {
-    _multipart.send(*socket->getPtr(), flags);
+    return _multipart.send(*socket->getPtr(), flags);
 }
 size_t ZMsg::Size()
 {
